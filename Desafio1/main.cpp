@@ -39,7 +39,7 @@ bool guardarImagen(const QString& ruta, unsigned char* datos, int ancho, int alt
     return resultado;
 }
 
-// Función para cargar archivo de enmascaramiento (sin usar QVector)
+// Función para cargar archivo de enmascaramiento
 bool cargarEnmascaramiento(const QString& ruta, int& desplazamiento, unsigned int*& sumas, int& numSumas) {
     QFile archivo(ruta);
     if(!archivo.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -110,7 +110,7 @@ void rotarIzquierda(unsigned char* img, int totalPixeles, int bits) {
     bits %= 8;
     if(bits == 0) return;
 
-    for(int i = 0; i < totalPixeles; i++) {
+    for(int i = 1; i < totalPixeles; i++) {
         img[i] = (img[i] << bits) | (img[i] >> (8 - bits));
     }
     qDebug() << "Rotación completada";
@@ -224,27 +224,6 @@ void aplicarDesplazamiento(unsigned char* img, int totalPixeles, int desplazamie
     qDebug() << "Desplazamiento aplicado";
 }
 
-/**
- * Verifica la coincidencia entre dos imágenes
- * para img1 Primera imagen
- * para img2 Segunda imagen
- * para totalPixeles Número total de píxeles
- * return Porcentaje de coincidencia (0-100)
- */
-float verificarCoincidencia(const unsigned char* img1, const unsigned char* img2,
-                            int totalPixeles) {
-    int coincidencias = 0;
-
-    for(int i = 0; i < totalPixeles; i++) {
-        if(img1[i] == img2[i]) {
-            coincidencias++;
-        }
-    }
-
-    float porcentaje = 100.0f * coincidencias / totalPixeles;
-    qDebug() << "Coincidencia entre imágenes:" << porcentaje << "%";
-    return porcentaje;
-}
 
 int main(int argc, char *argv[]) {
     QCoreApplication a(argc, argv);
@@ -307,75 +286,6 @@ int main(int argc, char *argv[]) {
     aplicarXOR(P2_masked, I_M, ancho * alto * 3);
     guardarImagen(rutaBase + "I_O_reconstruida.bmp", P2_masked, ancho, alto);
 
-    // 7. Verificación y corrección de desplazamiento
-    qDebug() << "\n=== Verificación y corrección final ===";
-
-    // Cargar imagen original si está disponible para comparación
-    unsigned char* I_O_original = cargarImagen(rutaBase + "I_O.bmp", ancho, alto);
-    if(I_O_original) {
-        // Calcular desplazamiento óptimo
-        int desplazamiento = calcularDesplazamientoOptimo(P2_masked, I_O_original, ancho * alto * 3);
-
-        // Aplicar corrección si es significativa
-        if(abs(desplazamiento) > 10) { // Umbral arbitrario
-            qDebug() << "Aplicando corrección de desplazamiento...";
-            aplicarDesplazamiento(P2_masked, ancho * alto * 3, -desplazamiento);
-
-            // Verificar mejora
-            float coincidencia = verificarCoincidencia(P2_masked, I_O_original, ancho * alto * 3);
-            if(coincidencia > 90) {
-                qDebug() << "Corrección exitosa! Coincidencia mejorada a" << coincidencia << "%";
-                guardarImagen(rutaBase + "I_O_reconstruida_corregida.bmp", P2_masked, ancho, alto);
-            }
-        }
-
-        delete[] I_O_original;
-    } else {
-        // Si no tenemos original, buscamos patrones de desplazamiento
-        qDebug() << "Buscando desplazamiento por autocorrelación...";
-
-        // Buscamos el primer píxel negro como posible marcador
-        int referencia = -1;
-        for(int i = 0; i < ancho * alto * 3; i++) {
-            if(P2_masked[i] == 0) {
-                referencia = i;
-                break;
-            }
-        }
-
-        if(referencia != -1) {
-            // Buscamos repetición del patrón
-            int siguiente = -1;
-            for(int i = referencia + 1; i < ancho * alto * 3; i++) {
-                if(P2_masked[i] == 0 && (i - referencia) > ancho * 3) {
-                    siguiente = i;
-                    break;
-                }
-            }
-
-            if(siguiente != -1) {
-                int desplazamiento = siguiente - referencia;
-                qDebug() << "Posible desplazamiento detectado:" << desplazamiento << "bytes";
-                aplicarDesplazamiento(P2_masked, ancho * alto * 3, -desplazamiento);
-                guardarImagen(rutaBase + "I_O_reconstruida_corregida.bmp", P2_masked, ancho, alto);
-            }
-        }
-    }
-
-    // Verificación final
-    /*qDebug() << "\n=== Verificación final ===";
-    unsigned char* I_O_original = cargarImagen(rutaBase + "I_O.bmp", ancho, alto);
-    if(I_O_original) {
-        bool iguales = true;
-        for(int i = 0; i < ancho * alto * 3; i++) {
-            if(P2_masked[i] != I_O_original[i]) {
-                iguales = false;
-                break;
-            }
-        }
-        qDebug() << "La imagen reconstruida" << (iguales ? "COINCIDE" : "NO COINCIDE") << "con la original";
-        delete[] I_O_original;
-    }*/
 
     // Liberar memoria
     delete[] P3;
@@ -388,3 +298,5 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
+
+
