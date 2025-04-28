@@ -1,5 +1,3 @@
-#include <iostream>
-#include <fstream>
 #include <QImage>
 #include <QString>
 #include <QDir>
@@ -87,9 +85,9 @@ bool cargarEnmascaramiento(const QString& ruta, int& desplazamiento, unsigned in
 
 /**
  * Aplica operación XOR entre dos imágenes
- * para img1 Primera imagen (será modificada)
- * para img2 Segunda imagen (no se modifica)
- * para totalPixeles Número total de píxeles (ancho*alto*3)
+ * @param img1 Primera imagen (será modificada)
+ * @param img2 Segunda imagen (no se modifica)
+ * @param totalPixeles Número total de píxeles (ancho*alto*3)
  */
 void aplicarXOR(unsigned char* img1, const unsigned char* img2, int totalPixeles) {
     qDebug() << "Aplicando XOR entre imágenes...";
@@ -101,16 +99,16 @@ void aplicarXOR(unsigned char* img1, const unsigned char* img2, int totalPixeles
 
 /**
  * Rota los bits de una imagen a la izquierda
- * para img Imagen a rotar
- * para totalPixeles Número total de píxeles
- * para bits Cantidad de bits a rotar (1-8)
+ * @param img Imagen a rotar
+ * @param totalPixeles Número total de píxeles
+ * @param bits Cantidad de bits a rotar (1-8)
  */
 void rotarIzquierda(unsigned char* img, int totalPixeles, int bits) {
     qDebug() << "Rotando" << bits << "bits a la izquierda...";
     bits %= 8;
     if(bits == 0) return;
 
-    for(int i = 1; i < totalPixeles; i++) {
+    for(int i = 0; i < totalPixeles; i++) {
         img[i] = (img[i] << bits) | (img[i] >> (8 - bits));
     }
     qDebug() << "Rotación completada";
@@ -118,13 +116,13 @@ void rotarIzquierda(unsigned char* img, int totalPixeles, int bits) {
 
 /**
  * Revertir el enmascaramiento aplicado a una imagen
- * para ID Imagen destino (será modificada)
- * para M Máscara utilizada
- * para sumas Resultados del enmascaramiento original
- * para desplazamiento Posición inicial del enmascaramiento
- * para pixelesMascara Número de píxeles en la máscara
- * para anchoID Ancho de la imagen destino
- * para anchoM Ancho de la máscara
+ * @param ID Imagen destino (será modificada)
+ * @param M Máscara utilizada
+ * @param sumas Resultados del enmascaramiento original
+ * @param desplazamiento Posición inicial del enmascaramiento
+ * @param pixelesMascara Número de píxeles en la máscara
+ * @param anchoID Ancho de la imagen destino
+ * @param anchoM Ancho de la máscara
  */
 void revertirEnmascaramiento(unsigned char* ID, const unsigned char* M,
                              const unsigned int* sumas, int desplazamiento,
@@ -154,52 +152,12 @@ void revertirEnmascaramiento(unsigned char* ID, const unsigned char* M,
     qDebug() << "Enmascaramiento revertido";
 }
 
-/**
- * Calcula el desplazamiento óptimo entre dos imágenes comparando coincidencias de píxeles
- * para img1 Primera imagen
- * para img2 Segunda imagen
- * para totalPixeles Número total de píxeles
- * para maxDesplazamiento Máximo desplazamiento a probar (en bytes)
- * return Desplazamiento con mayor coincidencia (positivo si img2 está adelantada)
- */
-int calcularDesplazamientoOptimo(const unsigned char* img1, const unsigned char* img2,
-                                 int totalPixeles, int maxDesplazamiento = 1000) {
-    qDebug() << "Calculando desplazamiento óptimo...";
-
-    int mejorDesplazamiento = 0;
-    int maxCoincidencias = 0;
-
-    // Probamos desplazamientos en ambas direcciones
-    for(int d = -maxDesplazamiento; d <= maxDesplazamiento; d++) {
-        int coincidencias = 0;
-        int pixelesComparados = 0;
-
-        for(int i = qMax(0, -d); i < qMin(totalPixeles, totalPixeles - d); i++) {
-            if(img1[i] == img2[i + d]) {
-                coincidencias++;
-            }
-            pixelesComparados++;
-        }
-
-        // Normalizamos por cantidad de píxeles comparados
-        float porcentaje = (pixelesComparados > 0) ? (100.0f * coincidencias / pixelesComparados) : 0;
-
-        if(porcentaje > maxCoincidencias) {
-            maxCoincidencias = porcentaje;
-            mejorDesplazamiento = d;
-        }
-    }
-
-    qDebug() << "Mejor desplazamiento encontrado:" << mejorDesplazamiento
-             << "bytes | Coincidencia:" << maxCoincidencias << "%";
-    return mejorDesplazamiento;
-}
 
 /**
  * Aplica un desplazamiento circular a una imagen
- * para img Imagen a desplazar (será modificada)
- * para totalPixeles Número total de píxeles
- * para desplazamiento Cantidad de bytes a desplazar (positivo = derecha, negativo = izquierda)
+ * @param img Imagen a desplazar (será modificada)
+ * @param totalPixeles Número total de píxeles
+ * @param desplazamiento Cantidad de bytes a desplazar (positivo = derecha, negativo = izquierda)
  */
 void aplicarDesplazamiento(unsigned char* img, int totalPixeles, int desplazamiento) {
     if(desplazamiento == 0) return;
@@ -224,6 +182,22 @@ void aplicarDesplazamiento(unsigned char* img, int totalPixeles, int desplazamie
     qDebug() << "Desplazamiento aplicado";
 }
 
+// Función para cargar múltiples imágenes y verificar dimensiones
+bool cargarImagenes(const QString& rutaBase, QString nombreP3, QString nombreIM, QString nombreM,
+                    unsigned char*& P3, unsigned char*& I_M, unsigned char*& M,
+                    int& ancho, int& alto, int& anchoM, int& altoM) {
+    P3 = cargarImagen(rutaBase + nombreP3, ancho, alto);
+    I_M = cargarImagen(rutaBase + nombreIM, ancho, alto);
+    M = cargarImagen(rutaBase + nombreM, anchoM, altoM);
+
+    if (!P3 || !I_M || !M) {
+        qCritical() << "Error al cargar imagenes base";
+        return false;
+    }
+    qDebug() << "Dimensiones M:" << anchoM << "x" << altoM;
+    return true;
+}
+
 
 int main(int argc, char *argv[]) {
     QCoreApplication a(argc, argv);
@@ -237,15 +211,21 @@ int main(int argc, char *argv[]) {
     // 1. Cargar todas las imágenes necesarias
     qDebug() << "\n=== Cargando imágenes ===";
     int ancho, alto, anchoM, altoM;
-    unsigned char* P3 = cargarImagen(rutaBase + "P3.bmp", ancho, alto);
-    unsigned char* I_M = cargarImagen(rutaBase + "I_M.bmp", ancho, alto);
-    unsigned char* M = cargarImagen(rutaBase + "M.bmp", anchoM, altoM);
+    unsigned char* P3 = nullptr;
+    unsigned char* I_M = nullptr;
+    unsigned char* M = nullptr;
 
-    if(!P3 || !I_M || !M) {
-        qCritical() << "Error al cargar imagenes base";
+    if (!cargarImagenes(rutaBase, "P3.bmp", "I_M.bmp", "M.bmp", P3, I_M, M, ancho, alto, anchoM, altoM)) {
         return 1;
     }
-    qDebug() << "Dimensiones M:" << anchoM << "x" << altoM;
+
+    // Verificar si las dimensiones de la máscara coinciden
+    if (ancho != anchoM || alto != altoM) {
+        qWarning() << "¡Advertencia! Las dimensiones de la máscara (M.bmp) no coinciden con las dimensiones de las otras imágenes.";
+        qWarning() << "Imagen P3/I_M:" << ancho << "x" << alto << ", Máscara M:" << anchoM << "x" << altoM;
+        // Considera si quieres detener la ejecución aquí si la discrepancia es crítica.
+        // return 1;
+    }
 
     // 2. Primer XOR: P3 ^ I_M = P2_enmascarado
     qDebug() << "\n=== Paso 1: Aplicando XOR (P3 ^ I_M) ===";
@@ -260,6 +240,7 @@ int main(int argc, char *argv[]) {
     unsigned int* sumas2;
     int numSumas2;
     if(cargarEnmascaramiento(rutaBase + "M2.txt", desplazamiento2, sumas2, numSumas2)) {
+        qDebug() << "Desplazamiento M2.txt:" << desplazamiento2;
         revertirEnmascaramiento(P2_masked, M, sumas2, desplazamiento2, numSumas2/3, ancho, anchoM);
         delete[] sumas2;
     }
@@ -276,6 +257,7 @@ int main(int argc, char *argv[]) {
     unsigned int* sumas1;
     int numSumas1;
     if(cargarEnmascaramiento(rutaBase + "M1.txt", desplazamiento1, sumas1, numSumas1)) {
+        qDebug() << "Desplazamiento M1.txt:" << desplazamiento1;
         revertirEnmascaramiento(P2_masked, M, sumas1, desplazamiento1, numSumas1/3, ancho, anchoM);
         delete[] sumas1;
     }
@@ -298,5 +280,4 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-
 
